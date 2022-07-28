@@ -135,12 +135,45 @@ interpret:
 ;   RSI = Address of string containing the word
 ;   RCX = Length of word
 handle_word:
-  call atoi
+  push rax
+  push rbx
+  push rcx
+  push rdx
 
-  mov rcx, [operand_stack_top]
-  mov [rcx], rax
-  add rcx, 8
-  mov [operand_stack_top], rcx
+  mov dl, [rsi]
+  movzx rdx, dl
+  cmp rdx, '0'
+  jb .handle_operand
+  cmp rdx, '9'
+  ja .handle_operand
+
+.handle_integer:
+  call atoi
+  mov rdx, [operand_stack_top]
+  mov [rdx], rax
+  add rdx, OPERAND_SIZE
+  mov [operand_stack_top], rdx
+  jmp .end
+
+.handle_operand:
+  cmp rdx, '+'
+  jne .end
+
+  mov rdx, [operand_stack_top]
+  sub rdx, OPERAND_SIZE
+  mov rax, [rdx]
+  sub rdx, OPERAND_SIZE
+  mov rbx, [rdx]
+  add rax, rbx
+  mov [rdx], rax
+  add rdx, OPERAND_SIZE
+  mov [operand_stack_top], rdx
+
+.end:
+  pop rdx
+  pop rcx
+  pop rbx
+  pop rax
 
   ret
 
