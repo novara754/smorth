@@ -20,6 +20,9 @@ newline_data: db 0x0A ; \n
 prompt_data: db ">> "
 prompt_len equ $ - prompt_data
 
+invalid_operator_msg_data: db "invalid operator: "
+invalid_operator_msg_len equ $ - invalid_operator_msg_data
+
 section .data
 input_buffer: times INPUT_BUFFER_SIZE db 0
 input_len: dq 0
@@ -200,6 +203,9 @@ handle_word:
   jmp .end
 
 .handle_operand:
+  cmp rcx, 1
+  jne .invalid_operator
+
   cmp rdx, '+'
   jne .try_dot
 
@@ -215,7 +221,7 @@ handle_word:
 
 .try_dot:
   cmp rdx, '.'
-  jne .end
+  jne .invalid_operator
 
   mov rdx, [operand_stack_top]
   sub rdx, OPERAND_SIZE
@@ -227,6 +233,16 @@ handle_word:
   call itoa
 
   mov rsi, rdi
+  mov rdx, rcx
+  call puts
+  call put_newline
+
+.invalid_operator:
+  push rsi
+  mov rsi, invalid_operator_msg_data
+  mov rdx, invalid_operator_msg_len
+  call puts
+  pop rsi
   mov rdx, rcx
   call puts
   call put_newline
@@ -251,11 +267,13 @@ exit:
 ;   RDX = Length of string
 puts:
   push rax
+  push rcx
   push rdi
   mov rax, SYS_WRITE
   mov rdi, STDOUT
   syscall
   pop rdi
+  pop rcx
   pop rax
   ret
 
