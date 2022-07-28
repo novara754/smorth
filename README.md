@@ -1,6 +1,6 @@
 # Smorth
 
-A very minimal stack based (post fix) programming language written in x86 64-bit assembly
+A very minimal stack based (post fix) interpreter written in x86 64-bit assembly
 for Linux.
 
 The program consists of a REPL which will read a line of user input and then
