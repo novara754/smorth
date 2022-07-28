@@ -10,6 +10,7 @@ STDOUT              equ 1
 EXIT_SUCCESS        equ 0
 
 INPUT_BUFFER_SIZE   equ 128
+OUTPUT_BUFFER_SIZE   equ 128
 OPERAND_SIZE        equ 8
 OPERAND_STACK_SIZE  equ 64
 
@@ -23,8 +24,13 @@ section .data
 input_buffer: times INPUT_BUFFER_SIZE db 0
 input_len: dq 0
 
+output_buffer: times OUTPUT_BUFFER_SIZE db 0
+output_len: dq 0
+
 operand_stack: times (OPERAND_STACK_SIZE * OPERAND_SIZE) dq 0
 operand_stack_top: dq operand_stack
+
+
 
 section .text
 global _start
@@ -55,6 +61,44 @@ _start:
 
 .repl_end:
   call exit
+
+; Convert a 64-bit unsigned integer into a string.
+; Inputs:
+;   RAX = Integer to convert to a string
+;   RDI = Address of the buffer to store the resulting string in
+;   RCX = Length of the buffer
+; Outputs:
+;   RDI = Address of the integer in the string buffer
+;   RCX = Length of the resulting string
+itoa:
+  push rax
+  push rbx
+  push rdx
+
+  add rdi, rcx
+  dec rdi
+  mov rcx, 0
+
+.loop:
+  mov rdx, 0
+  mov rbx, 10
+  div rbx
+  add rdx, '0'
+  mov [rdi], dl
+  inc rcx
+
+  cmp rax, 0
+  je .end
+
+  dec rdi
+
+  jmp .loop
+
+.end:
+  pop rdx
+  pop rbx
+  pop rax
+  ret
 
 ; Convert a string into a 64-bit integer.
 ; Inputs:
@@ -157,7 +201,7 @@ handle_word:
 
 .handle_operand:
   cmp rdx, '+'
-  jne .end
+  jne .try_dot
 
   mov rdx, [operand_stack_top]
   sub rdx, OPERAND_SIZE
@@ -168,6 +212,24 @@ handle_word:
   mov [rdx], rax
   add rdx, OPERAND_SIZE
   mov [operand_stack_top], rdx
+
+.try_dot:
+  cmp rdx, '.'
+  jne .end
+
+  mov rdx, [operand_stack_top]
+  sub rdx, OPERAND_SIZE
+  mov rax, [rdx]
+  mov [operand_stack_top], rdx
+
+  mov rdi, output_buffer
+  mov rcx, OUTPUT_BUFFER_SIZE
+  call itoa
+
+  mov rsi, rdi
+  mov rdx, rcx
+  call puts
+  call put_newline
 
 .end:
   pop rdx
