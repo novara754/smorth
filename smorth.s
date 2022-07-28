@@ -10,6 +10,7 @@ STDOUT              equ 1
 EXIT_SUCCESS        equ 0
 
 INPUT_BUFFER_SIZE   equ 128
+OPERAND_SIZE        equ 8
 OPERAND_STACK_SIZE  equ 64
 
 section .rodata
@@ -22,8 +23,8 @@ section .data
 input_buffer: times INPUT_BUFFER_SIZE db 0
 input_len: dq 0
 
-operand_stack: times OPERAND_STACK_SIZE dq 0
-operand_stack_ptr: dq operand_stack
+operand_stack: times (OPERAND_STACK_SIZE * OPERAND_SIZE) dq 0
+operand_stack_top: dq operand_stack
 
 section .text
 global _start
@@ -55,13 +56,49 @@ _start:
 .repl_end:
   call exit
 
+; Convert a string into a 64-bit integer.
+; Inputs:
+;   RSI = Address of the string to convert
+;   RCX = Length of the string to convert
+; Outputs:
+;   RAX = Integer converted from the string
+atoi:
+  push rbx
+  push rcx
+  push rdx
+  push rsi
+
+  mov rax, 0
+  test rcx, rcx
+  jz .end
+.loop:
+  mov rbx, 0
+  mov bl, [rsi]
+  movzx rbx, bl
+  sub rbx, '0'
+  add rax, rbx
+
+  inc rsi
+  dec rcx
+  jz .end
+
+  mov rbx, 10
+  mul rbx
+  jmp .loop
+.end:
+  pop rsi
+  pop rdx
+  pop rcx
+  pop rbx
+  ret
+
 ; Interpret a NUL-terminated string as Smorth code.
 ; Inputs:
 ;   RSI = Address of string to interpret
 interpret:
   push rbx
   push rsi
-  push rdx
+  push rcx
   mov rbx, rsi
 .loop:
   cmp BYTE [rbx], 0
@@ -74,22 +111,37 @@ interpret:
   jmp .loop
 
 .word:
-  mov rdx, rbx
-  sub rdx, rsi
-  call puts
-  call put_newline
+  mov rcx, rbx
+  sub rcx, rsi
+  call handle_word
+
   inc rbx
   mov rsi, rbx
   jmp .loop
 
 .end:
-  mov rdx, rbx
-  sub rdx, rsi
-  call puts
-  call put_newline
-  pop rdx
+  mov rcx, rbx
+  sub rcx, rsi
+  call handle_word
+
+  pop rcx
   pop rsi
   pop rbx
+  ret
+
+; Helper function for `interpret` that handles a single word of input, be
+; it an integer operand or a operator.
+; Inputs:
+;   RSI = Address of string containing the word
+;   RCX = Length of word
+handle_word:
+  call atoi
+
+  mov rcx, [operand_stack_top]
+  mov [rcx], rax
+  add rcx, 8
+  mov [operand_stack_top], rcx
+
   ret
 
 ; Terminate the process.
